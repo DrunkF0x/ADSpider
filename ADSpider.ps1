@@ -5,6 +5,7 @@ Function Invoke-ADSpider(
 [switch]$Credentials = $false,
 [switch]$FormatList = $false,
 [switch]$ExcludelastLogonTimestamp = $false,
+[switch]$DumpAllObjects = $false,
 [int]$Sleep = 20
 )
 {
@@ -65,29 +66,40 @@ return (0..($UACPropertyFlags.Length) | where-object {$UAC -bAnd [math]::Pow(2,$
 ###################################################################
 ## Beautifull logo :)
 Write-host '
-      
-       d8888 8888888b.   .d8888b.           d8b      888                  
-      d88888 888  "Y88b d88P  Y88b          Y8P      888                  
-     d88P888 888    888 Y88b.                        888                  
-    d88P 888 888    888  "Y888b.   88888b.  888  .d88888  .d88b.  888d888 
-   d88P  888 888    888     "Y88b. 888 "88b 888 d88" 888 d8P  Y8b 888P"   
-  d88P   888 888    888       "888 888  888 888 888  888 88888888 888     
- d8888888888 888  .d88P Y88b  d88P 888 d88P 888 Y88b 888 Y8b.     888     
-d88P     888 8888888P"   "Y8888P"  88888P"  888  "Y88888  "Y8888  888     
-                                   888                                    
-                                   888                                    
-                                   888                                    
-
-                                                             By DrunkF0x.
+                                                                                         (
+       d8888 8888888b.   .d8888b.           d8b      888                                  )
+      d88888 888  "Y88b d88P  Y88b          Y8P      888                                 ( 
+     d88P888 888    888 Y88b.                        888                           /\  .-"""-.  /\ 
+    d88P 888 888    888  "Y888b.   88888b.  888  .d88888  .d88b.  888d888         //\\/  ,,,  \//\\ 
+   d88P  888 888    888     "Y88b. 888 "88b 888 d88" 888 d8P  Y8b 888P"           |/\| ,;;;;;, |/\| 
+  d88P   888 888    888       "888 888  888 888 888  888 88888888 888             //\\\;-"""-;///\\ 
+ d8888888888 888  .d88P Y88b  d88P 888 d88P 888 Y88b 888 Y8b.     888            //  \/   .   \/  \\ 
+d88P     888 8888888P"   "Y8888P"  88888P"  888  "Y88888  "Y8888  888           (| ,-_| \ | / |_-, |) 
+                                   888                                            //`__\.-.-./__`\\ 
+                                   888                                           // /.-(() ())-.\ \\ 
+                                   888                                          (\ |)   "---"   (| /) 
+                                                                                 ` (|           |) ` 
+                                                             By DrunkF0x.          \)           (/
 '
 ## Import module ActiveDirectory, if it does not import yet
 if (!(Get-Module | Where-Object {$_.Name -eq "ActiveDirectory"})) {import-module ActiveDirectory}
+## Collected data storage
+$USNDataWH = @()
 ## If we need, we set domain credentials
 if ($Credentials) {
     $DomainCreds = Get-Credential
     } ## if ($Credentials)
 ## Domain Controller ip 
 $DCIp = (Resolve-DnsName $DC).IPAddress
+## If we need, we dump all objects with all properties. 
+## This is very loud, high network use and time consuming.
+## But this this the sacrifice you are willing to make...
+$DumpedAD = $null
+if ($DumpAllObjects) {
+    Write-Host "Dumping all Active Directory objects... This can take a lot of time."
+    $DumpedAD = Get-ADObject -Filter * -Properties * -Server $DC
+    Write-Host "Done!"
+    }
 ## Get first DC usn value
 if ($Credentials) {
     $DCInvID = (Get-ADDomainController $DC -Server $DC -Credential $DomainCreds).InvocationID.Guid
@@ -99,6 +111,7 @@ else {
     } ## else
 $DCOldUSN = $DCStartReplUTDV.USNFilter
 "Spider on AD Web now..."
+## Main loop
 :main for (;;) {
     start-sleep -Seconds $Sleep
     if ($Credentials) {
@@ -123,44 +136,130 @@ $DCOldUSN = $DCStartReplUTDV.USNFilter
                 $Props = Get-ADReplicationAttributeMetadata $Object.DistinguishedName -Server $DC -Credential $DomainCreds -IncludeDeletedObjects -ShowAllLinkedValues
                 } ## if ($Credentials)
             else {
-                $Props = Get-ADReplicationAttributeMetadata $Object.DistinguishedName -Server $DC -IncludeDeletedObjects -ShowAllLinkedValues
+                $Props = Get-ADReplicationAttributeMetadata $Object.ObjectGUID.Guid -Server $DC -IncludeDeletedObjects -ShowAllLinkedValues
                 } ## else
             $ChangedProps = $Props | Where-Object {$_.LocalChangeUsn -gt $DCOldUSN} | 
                 Select-Object Object,AttributeName,AttributeValue,LastOriginatingChangeTime,LocalChangeUsn,Version
+            ############################################# 
+            ##
+            ## Working with single property
+            ##
+            #############################################
             :props foreach ($Prop in $ChangedProps) {
-                ## Adding new property for explaination about changes
-                $Prop | Add-Member -MemberType NoteProperty -Name Explaination -Value $Null
+                ## Adding new property for explanation about changes
+                $Prop | Add-Member -MemberType NoteProperty -Name Explanation -Value $Null
+                ## Adding new property for ObjectGUID
+                $Prop | Add-Member -MemberType NoteProperty -Name ObjectGUID -Value $Object.ObjectGUID.Guid
                 ## Add some human readable information
                 switch ($Prop.AttributeName) {
                     ## convert number of userAccountControl to human format
                     "userAccountControl" {
-                        $Prop.Explaination = Convert-UAC $Prop.AttributeValue
+                        $Prop.Explanation = Convert-UAC $Prop.AttributeValue
                         } ## "userAccountControl"
                     ## add or delete member from group
                     "member" {
                         if ($Prop.Version%2 -eq 1) {
-                            $Prop.Explaination = "Added to group"
+                            $Prop.Explanation = "Added to group"
                             } ## if ($Prop.Version%2 -eq 0)
                         else {
-                            $Prop.Explaination = "Deleted from group"
+                            $Prop.Explanation = "Deleted from group"
                             } ## else
                         } ## "member"
                     ## convert date & time to human format
-                    {($_ -eq "lastLogonTimestamp") -or ($_ -eq "accountExpires") -or ($_ -eq "pwdlastset") -or ($_ -eq "lockoutTime") -or ($_ -eq "ms-Mcs-AdmPwdExpirationTime")} {
-                        $Prop.Explaination = [DateTime]::FromFileTime($Prop.AttributeValue)
+                    {($_ -eq "lastLogonTimestamp") -or ($_ -eq "pwdlastset") -or ($_ -eq "lockoutTime") -or ($_ -eq "ms-Mcs-AdmPwdExpirationTime")} {
+                        $Prop.Explanation = [DateTime]::FromFileTime($Prop.AttributeValue)
                         } ## "accountExpires", "pwdlastset"...
+                    ## Expires Account convert to human readable format
+                    {($_ -eq "accountExpires")} {
+                        if (($Prop.AttributeValue -eq 0) -or ($Prop.AttributeValue -gt [DateTime]::MaxValue.Ticks)) {$Prop.Explanation = "Never Expired"}
+                        else {
+                            $AEDate = [datetime]$Prop.AttributeValue
+                            $Prop.Explanation = $AEDate.AddYears(1600).ToLocalTime()
+                            } ## else
+                        } ## $_ -eq "accountExpires"
                     } ## switch
                 } ## :props foreach ($Prop in $ChangedProps)
             ## Exclude lastLogonTimestamp events
             if ($ExcludelastLogonTimestamp) {
                 $ChangedProps = $ChangedProps | Where-Object {$_.AttributeName -ne "lastLogonTimestamp"}
                 }
+            ############################################# 
+            ##
+            ## Checking for changes 
+            ## Надо пройтись по каждой строчке и поискать в $USNDataWH строчки с ObjectGUID и AttributeName. Если такие строчки нашлись, мы берем строчку с самым высоким USN.
+            ##
+            #############################################
+            ## Colorize output (for PowerShell 5.1)
+            $esc = [char]27; # escape character
+            $red = $esc + '[31m'
+            $green = $esc + '[32m'
+            $yellow = $esc + '[33m'
+            $reset = $esc + '[0m'
+            ## Output variable
+            $OutputData = @()
+            :history foreach ($HistoryProp in $ChangedProps) {
+                ## Expressions for new value
+                $AttrNew = $HistoryProp.AttributeValue
+                $Exp_New = {$("{0}$AttrNew{1}" -f $green, $reset)}
+                $OutputData += $HistoryProp | Select-Object Object,AttributeName,@{n="AttributeValue";e=$Exp_New},LastOriginatingChangeTime,LocalChangeUsn,Version,Explanation,ObjectGUID
+                if ($HistoryProp.AttributeName -eq "member") {continue history}
+                $OldRecords = $null
+                $RecentChange = $null
+                $OldRecords = $USNDataWH | Where-Object {$_.ObjectGUID.Guid -eq $HistoryProp.ObjectGUID.Guid -AND $_.Attributename -eq $HistoryProp.Attributename}
+                ## If no old values but we dump all AD before - we search this value in dump
+                if (!$OldRecords -AND $DumpedAD) {
+                    $DumpedObject = $DumpedAD | Where-Object {$_.ObjectGUID.GUID -eq $HistoryProp.ObjectGUID}
+                    $DumpExplanation = "-"
+                    $ValueFromDump = $DumpedObject.($HistoryProp.AttributeName)
+                    switch ($HistoryProp.AttributeName) {
+                        ## convert number of userAccountControl to human format
+                        "userAccountControl" {
+                            $DumpExplanation = Convert-UAC $ValueFromDump
+                            } ## "userAccountControl"
+                        ## convert date & time to human format
+                        {($_ -eq "lastLogonTimestamp") -or ($_ -eq "pwdlastset") -or ($_ -eq "lockoutTime") -or ($_ -eq "ms-Mcs-AdmPwdExpirationTime")} {
+                            $DumpExplanation = [DateTime]::FromFileTime($ValueFromDump)
+                            } ## "accountExpires", "pwdlastset"...
+                        ## Expires Account convert to human readable format
+                        {($_ -eq "accountExpires")} {
+                            if (($HistoryProp.AttributeName -eq 0) -or ($HistoryProp.AttributeName -gt [DateTime]::MaxValue.Ticks)) {$DumpExplanation = "Never Expired"}
+                            else {
+                                $AEDate = [datetime]$ValueFromDump
+                                $DumpExplanation = $AEDate.AddYears(1600).ToLocalTime()
+                                } ## else
+                            } ## $_ -eq "accountExpires"
+                        } ## switch
+                    $Exp_Dump = {$("{0}$ValueFromDump{1}" -f $red, $reset)}
+                    $OutputData += $DumpedObject | Select-Object @{n="Object";e={$_.DistinguishedName}},@{n="AttributeName";e={$HistoryProp.AttributeName}},
+                        @{n="AttributeValue";e=$Exp_Dump},@{n="LastOriginatingChangeTime";e={"-"}},@{n="LocalChangeUsn";e={"-"}},@{n="Version";e={"-"}},@{n="Explanation";e={$DumpExplanation}},@{n="ObjectGUID";e={$_.ObjectGUID.GUID}}
+                    continue history
+                    }
+                ## If no old values - we continue foreach with next property
+                if (!$OldRecords) {continue history}
+                ## If we have old values, we get previous version (by USN) and place it in output
+                ## Expressions for old value
+                $RecentChange = ($OldRecords | Sort-Object -Property LocalChangeUsn -Descending)[0]
+                $AttrOld = $RecentChange.AttributeValue
+                $Exp_Old = {$("{0}$AttrOld{1}" -f $yellow, $reset)}
+                $OutputData += $RecentChange | Select-Object Object,AttributeName,@{n="AttributeValue";e=$Exp_old},LastOriginatingChangeTime,LocalChangeUsn,Version,Explanation,ObjectGUID
+                } ## history foreach ($HistoryProp in $ChangedProps)
+            ############################################# 
+            ##
+            ## Collecting History
+            ##
+            #############################################            
+            $USNDataWH += $ChangedProps
+            ############################################# 
+            ##
+            ## Output
+            ##
+            #############################################
             ## Change out format
             if (!$FormatList) {
-                $ChangedProps | format-table -Wrap
+                $OutputData | format-table -Wrap
                 } ## if ($FormatList)
             else {
-                $ChangedProps | format-list
+                $OutputData | format-list
                 } ## else
             } ## :changed_objects foreach 
         $DCOldUSN = $DCChangedUSN
