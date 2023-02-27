@@ -1,6 +1,7 @@
 ﻿###################################################################
 ###################################################################
 Function Invoke-ADSpider(
+[cmdletbinding()]
 [parameter(Mandatory=$true)][string]$DC,
 [switch]$Credentials = $false,
 [switch]$FormatList = $false,
@@ -205,7 +206,8 @@ $DCOldUSN = $DCStartReplUTDV.USNFilter
                 if ($HistoryProp.AttributeName -eq "member") {continue history}
                 $OldRecords = $null
                 $RecentChange = $null
-                $OldRecords = $USNDataWH | Where-Object {$_.ObjectGUID.Guid -eq $HistoryProp.ObjectGUID.Guid -AND $_.Attributename -eq $HistoryProp.Attributename}
+                $OldRecords = $USNDataWH | Where-Object {$_.ObjectGUID -eq $HistoryProp.ObjectGUID -AND $_.Attributename -eq $HistoryProp.Attributename}
+                Write-Debug "Got old records from USNDataWH"
                 ## If no old values but we dump all AD before - we search this value in dump
                 if (!$OldRecords -AND $DumpedAD) {
                     $DumpedObject = $DumpedAD | Where-Object {$_.ObjectGUID.GUID -eq $HistoryProp.ObjectGUID}
@@ -241,6 +243,7 @@ $DCOldUSN = $DCStartReplUTDV.USNFilter
                 $RecentChange = ($OldRecords | Sort-Object -Property LocalChangeUsn -Descending)[0]
                 $AttrOld = $RecentChange.AttributeValue
                 $Exp_Old = {$("{0}$AttrOld{1}" -f $yellow, $reset)}
+                Write-Debug "Before OutputData write (history, no DampedAD"
                 $OutputData += $RecentChange | Select-Object Object,AttributeName,@{n="AttributeValue";e=$Exp_old},LastOriginatingChangeTime,LocalChangeUsn,Version,Explanation,ObjectGUID
                 } ## history foreach ($HistoryProp in $ChangedProps)
             ############################################# 
