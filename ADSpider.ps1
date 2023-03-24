@@ -272,7 +272,7 @@ $DCOldUSN = $DCStartReplUTDV.USNFilter
                     @{Label='AttributeValue';Expression={$_.AttributeValue};Width=[int]($Host.UI.RawUI.WindowSize.Width/5)},
                     @{Label='LastOriginChangeTime';Expression={$_.LastOriginatingChangeTime};Width=[int]($Host.UI.RawUI.WindowSize.Width/5)},
                     @{Label='Explanation';Expression={$_.Explanation};Width=[int]($Host.UI.RawUI.WindowSize.Width/5)} -Wrap
-                }
+                } ## if ($Shorts)
             ## Change out format
             elseif ($FormatList -AND !$Short) {
                 $OutputData | format-list
