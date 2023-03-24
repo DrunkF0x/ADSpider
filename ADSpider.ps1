@@ -7,6 +7,7 @@ Function Invoke-ADSpider(
 [switch]$FormatList = $false,
 [switch]$ExcludelastLogonTimestamp = $false,
 [switch]$DumpAllObjects = $false,
+[switch]$Short = $false,
 [array]$ExcludeObjectGUID = $null,
 [int]$Sleep = 30
 )
@@ -108,6 +109,7 @@ if ($Credentials) {
     $DCStartReplUTDV = Get-ADReplicationUpToDatenessVectorTable $DC -EnumerationServer $DCIp -Credential $DomainCreds | where-object {$_.PartnerInvocationId.Guid -eq $DCInvID}
     } ## if ($Credentials)
 else {
+    $DomainDN = (Get-ADDomain -Server $DC).DistinguishedName
     $DCInvID = (Get-ADDomainController $DC -Server $DC).InvocationID.Guid
     $DCStartReplUTDV = Get-ADReplicationUpToDatenessVectorTable $DC -EnumerationServer $DCIp | where-object {$_.PartnerInvocationId.Guid -eq $DCInvID}   
     } ## else
@@ -263,12 +265,27 @@ $DCOldUSN = $DCStartReplUTDV.USNFilter
             ## Output
             ##
             #############################################
+            ## Short output
+            if ($Short) {
+                $OutputData | format-table -Property @{Label='Object';Expression={$_.Object.TrimEnd($DomainDN)};Width=[int]($Host.UI.RawUI.WindowSize.Width/5)},
+                    @{Label='AttributeName';Expression={$_.AttributeName};Width=[int]($Host.UI.RawUI.WindowSize.Width/5)},
+                    @{Label='AttributeValue';Expression={$_.AttributeValue};Width=[int]($Host.UI.RawUI.WindowSize.Width/5)},
+                    @{Label='LastOriginChangeTime';Expression={$_.LastOriginatingChangeTime};Width=[int]($Host.UI.RawUI.WindowSize.Width/5)},
+                    @{Label='Explanation';Expression={$_.Explanation};Width=[int]($Host.UI.RawUI.WindowSize.Width/5)} -Wrap
+                }
             ## Change out format
-            if (!$FormatList) {
-                $OutputData | format-table -Wrap
+            elseif ($FormatList -AND !$Short) {
+                $OutputData | format-list
                 } ## if ($FormatList)
             else {
-                $OutputData | format-list
+                $OutputData | format-table -Property @{Label='Object';Expression={$_.Object.TrimEnd($DomainDN)};Width=[int]($Host.UI.RawUI.WindowSize.Width/9)},
+                    @{Label='AttributeName';Expression={$_.AttributeName};Width=[int]($Host.UI.RawUI.WindowSize.Width/9)},
+                    @{Label='AttributeValue';Expression={$_.AttributeValue};Width=[int]($Host.UI.RawUI.WindowSize.Width/9)},
+                    @{Label='LastOriginChangeTime';Expression={$_.LastOriginatingChangeTime};Width=[int]($Host.UI.RawUI.WindowSize.Width/9)},
+                    @{Label='LocalChangeUsn';Expression={$_.LocalChangeUsn};Width= [int]($Host.UI.RawUI.WindowSize.Width/9)},
+                    @{Label='Version';Expression={$_.Version};Width= [int]($Host.UI.RawUI.WindowSize.Width/9)},
+                    @{Label='Explanation';Expression={$_.Explanation};Width=[int]($Host.UI.RawUI.WindowSize.Width/9)},
+                    @{Label='ObjectGUID';Expression={$_.ObjectGUID};Width= [int]($Host.UI.RawUI.WindowSize.Width/9)} -Wrap
                 } ## else
             } ## :changed_objects foreach 
         $DCOldUSN = $DCChangedUSN
