@@ -7,7 +7,8 @@ Function Invoke-ADSpider(
 [switch]$FormatList = $false,
 [switch]$ExcludelastLogonTimestamp = $false,
 [switch]$DumpAllObjects = $false,
-[int]$Sleep = 20
+[array]$ExcludeObjectGUID = $null,
+[int]$Sleep = 30
 )
 {
 <#
@@ -127,12 +128,17 @@ $DCOldUSN = $DCStartReplUTDV.USNFilter
         $DCChangedUSN = $DCReplUTDV.USNFilter
         ## Get all objects from current DC, where ChangeUSN value greater than new USN
         if ($Credentials) {
-            $ChangedObjects = Get-ADObject -Filter {usnchanged -gt $DCOldUSN} -Server $DC -Credential $DomainCreds
+            $ChangedObjects = Get-ADObject -LDAPFilter "(&(objectClass=*)(usnchanged>=$DCOldUSN))" -Server $DC -Credential $DomainCreds
             } ## if ($Credentials)
         else {
-            $ChangedObjects = Get-ADObject -Filter {usnchanged -gt $DCOldUSN} -Server $DC
+            $ChangedObjects = Get-ADObject -LDAPFilter "(&(objectClass=*)(usnchanged>=$DCOldUSN))" -Server $DC
             } ## else
         :changed_objects foreach ($Object in $ChangedObjects) {
+            ## Check if object in ExcludeObject
+            ## If object in Exclude list, just ignore it :)
+            if ($ExcludeObjectGUID -contains $Object.ObjectGUID.Guid) {
+                continue changed_objects
+                } ## if Exclude
             if ($Credentials) {            
                 $Props = Get-ADReplicationAttributeMetadata $Object.DistinguishedName -Server $DC -Credential $DomainCreds -IncludeDeletedObjects -ShowAllLinkedValues
                 } ## if ($Credentials)
