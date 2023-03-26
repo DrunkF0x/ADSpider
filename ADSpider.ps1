@@ -8,6 +8,7 @@ Function Invoke-ADSpider(
 [switch]$ExcludelastLogonTimestamp = $false,
 [switch]$DumpAllObjects = $false,
 [switch]$Short = $false,
+[string]$Output = $null,
 [array]$ExcludeObjectGUID = $null,
 [int]$Sleep = 30
 )
@@ -115,6 +116,9 @@ else {
     } ## else
 $DCOldUSN = $DCStartReplUTDV.USNFilter
 "Spider on AD Web now..."
+if ($Output) {
+    "Output will be save in $Output"
+    } ## if ($Output)
 ## Main loop
 :main for (;;) {
     start-sleep -Seconds $Sleep
@@ -130,10 +134,11 @@ $DCOldUSN = $DCStartReplUTDV.USNFilter
         $DCChangedUSN = $DCReplUTDV.USNFilter
         ## Get all objects from current DC, where ChangeUSN value greater than new USN
         if ($Credentials) {
-            $ChangedObjects = Get-ADObject -LDAPFilter "(&(objectClass=*)(usnchanged>=$DCOldUSN))" -Server $DC -Credential $DomainCreds
+            $ChangedObjects = Get-ADObject -LDAPFilter "(&(objectClass=*)(usnchanged>=$DCOldUSN))" -Server $DC -Credential $DomainCreds -IncludeDeletedObjects
             } ## if ($Credentials)
         else {
-            $ChangedObjects = Get-ADObject -LDAPFilter "(&(objectClass=*)(usnchanged>=$DCOldUSN))" -Server $DC
+            $ChangedObjects = Get-ADObject -LDAPFilter "(&(objectClass=*)(usnchanged>=$DCOldUSN))" -Server $DC -IncludeDeletedObjects
+            Write-Debug "Gotted changed objects"
             } ## else
         :changed_objects foreach ($Object in $ChangedObjects) {
             ## Check if object in ExcludeObject
@@ -260,6 +265,9 @@ $DCOldUSN = $DCStartReplUTDV.USNFilter
             ##
             #############################################            
             $USNDataWH += $ChangedProps
+            if ($Output) {
+                $USNDataWH | Export-Clixml -Depth 5 -Path $Output -Force
+                }
             ############################################# 
             ##
             ## Output
@@ -278,14 +286,14 @@ $DCOldUSN = $DCStartReplUTDV.USNFilter
                 $OutputData | format-list
                 } ## if ($FormatList)
             else {
-                $OutputData | format-table -Property @{Label='Object';Expression={$_.Object.TrimEnd($DomainDN)};Width=[int]($Host.UI.RawUI.WindowSize.Width/9)},
-                    @{Label='AttributeName';Expression={$_.AttributeName};Width=[int]($Host.UI.RawUI.WindowSize.Width/9)},
-                    @{Label='AttributeValue';Expression={$_.AttributeValue};Width=[int]($Host.UI.RawUI.WindowSize.Width/9)},
-                    @{Label='LastOriginChangeTime';Expression={$_.LastOriginatingChangeTime};Width=[int]($Host.UI.RawUI.WindowSize.Width/9)},
-                    @{Label='LocalChangeUsn';Expression={$_.LocalChangeUsn};Width= [int]($Host.UI.RawUI.WindowSize.Width/9)},
-                    @{Label='Version';Expression={$_.Version};Width= [int]($Host.UI.RawUI.WindowSize.Width/9)},
-                    @{Label='Explanation';Expression={$_.Explanation};Width=[int]($Host.UI.RawUI.WindowSize.Width/9)},
-                    @{Label='ObjectGUID';Expression={$_.ObjectGUID};Width= [int]($Host.UI.RawUI.WindowSize.Width/9)} -Wrap
+                $OutputData | format-table -Property @{Label='Object';Expression={$_.Object.TrimEnd($DomainDN)};Width=[int](($Host.UI.RawUI.WindowSize.Width - 77)/4)},
+                    @{Label='AttributeName';Expression={$_.AttributeName};Width=[int](($Host.UI.RawUI.WindowSize.Width - 77)/5)},
+                    @{Label='AttributeValue';Expression={$_.AttributeValue};Width=[int](($Host.UI.RawUI.WindowSize.Width - 77)/4)},
+                    @{Label='LastOriginChangeTime';Expression={$_.LastOriginatingChangeTime};Width=20},
+                    @{Label='LocalChangeUsn';Expression={$_.LocalChangeUsn};Width=14},
+                    @{Label='Version';Expression={$_.Version};Width=7},
+                    @{Label='Explanation';Expression={$_.Explanation};Width=[int](($Host.UI.RawUI.WindowSize.Width - 77)/5)},
+                    @{Label='ObjectGUID';Expression={$_.ObjectGUID};Width=36} -Wrap
                 } ## else
             } ## :changed_objects foreach 
         $DCOldUSN = $DCChangedUSN
