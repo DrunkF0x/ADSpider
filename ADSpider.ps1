@@ -214,8 +214,9 @@ if ($Output) {
             :history foreach ($HistoryProp in $ChangedProps) {
                 ## Expressions for new value
                 $AttrNew = $HistoryProp.AttributeValue
-                $Exp_New = {$("{0}$AttrNew{1}" -f $green, $reset)}
-                $OutputData += $HistoryProp | Select-Object Object,AttributeName,@{n="AttributeValue";e=$Exp_New},LastOriginatingChangeTime,LocalChangeUsn,Version,Explanation,ObjectGUID
+                #$Exp_New = {$("{0}$AttrNew{1}" -f $green, $reset)}
+                #$OutputData += $HistoryProp | Select-Object Object,AttributeName,@{Label="AttributeValue";Expression=$Exp_New},LastOriginatingChangeTime,LocalChangeUsn,Version,Explanation,ObjectGUID
+                $OutputData += $HistoryProp | Select-Object Object,AttributeName,@{Label="AttributeValue";Expression={$green + $AttrNew + $reset}},LastOriginatingChangeTime,LocalChangeUsn,Version,Explanation,ObjectGUID
                 if ($HistoryProp.AttributeName -eq "member") {continue history}
                 $OldRecords = $null
                 $RecentChange = $null
@@ -244,9 +245,11 @@ if ($Output) {
                                 } ## else
                             } ## $_ -eq "accountExpires"
                         } ## switch
-                    $Exp_Dump = {$("{0}$ValueFromDump{1}" -f $red, $reset)}
+                    #$Exp_Dump = {$("{0}$ValueFromDump{1}" -f $red, $reset)}
+                    #$OutputData += $DumpedObject | Select-Object @{n="Object";e={$_.DistinguishedName}},@{n="AttributeName";e={$HistoryProp.AttributeName}},
+                    #    @{n="AttributeValue";e=$Exp_Dump},@{n="LastOriginatingChangeTime";e={"-"}},@{n="LocalChangeUsn";e={"-"}},@{n="Version";e={"-"}},@{n="Explanation";e={$DumpExplanation}},@{n="ObjectGUID";e={$_.ObjectGUID.GUID}}
                     $OutputData += $DumpedObject | Select-Object @{n="Object";e={$_.DistinguishedName}},@{n="AttributeName";e={$HistoryProp.AttributeName}},
-                        @{n="AttributeValue";e=$Exp_Dump},@{n="LastOriginatingChangeTime";e={"-"}},@{n="LocalChangeUsn";e={"-"}},@{n="Version";e={"-"}},@{n="Explanation";e={$DumpExplanation}},@{n="ObjectGUID";e={$_.ObjectGUID.GUID}}
+                        @{n="AttributeValue";e={$red + $ValueFromDump + $reset}},@{n="LastOriginatingChangeTime";e={"-"}},@{n="LocalChangeUsn";e={"-"}},@{n="Version";e={"-"}},@{n="Explanation";e={$DumpExplanation}},@{n="ObjectGUID";e={$_.ObjectGUID.GUID}}
                     continue history
                     }
                 ## If no old values - we continue foreach with next property
@@ -255,9 +258,10 @@ if ($Output) {
                 ## Expressions for old value
                 $RecentChange = ($OldRecords | Sort-Object -Property LocalChangeUsn -Descending)[0]
                 $AttrOld = $RecentChange.AttributeValue
-                $Exp_Old = {$("{0}$AttrOld{1}" -f $yellow, $reset)}
-                Write-Debug "Before OutputData write (history, no DampedAD"
-                $OutputData += $RecentChange | Select-Object Object,AttributeName,@{n="AttributeValue";e=$Exp_old},LastOriginatingChangeTime,LocalChangeUsn,Version,Explanation,ObjectGUID
+                #$Exp_Old = {$("{0}$AttrOld{1}" -f $yellow, $reset)}
+                Write-Debug "Before OutputData write (history, no DampedAD)"
+                #$OutputData += $RecentChange | Select-Object Object,AttributeName,@{n="AttributeValue";e=$Exp_old},LastOriginatingChangeTime,LocalChangeUsn,Version,Explanation,ObjectGUID
+                $OutputData += $RecentChange | Select-Object Object,AttributeName,@{n="AttributeValue";e={$yellow + $AttrOld + $reset}},LastOriginatingChangeTime,LocalChangeUsn,Version,Explanation,ObjectGUID
                 } ## history foreach ($HistoryProp in $ChangedProps)
             ############################################# 
             ##
@@ -274,6 +278,7 @@ if ($Output) {
             ##
             #############################################
             ## Short output
+            Write-Debug "Gotted all data. Output will be next"
             if ($Short) {
                 $OutputData | format-table -Property @{Label='Object';Expression={$_.Object.TrimEnd($DomainDN)};Width=[int]($Host.UI.RawUI.WindowSize.Width/5)},
                     @{Label='AttributeName';Expression={$_.AttributeName};Width=[int]($Host.UI.RawUI.WindowSize.Width/5)},
