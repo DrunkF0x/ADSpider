@@ -2,15 +2,17 @@
 ###################################################################
 Function Invoke-ADSpider(
 [cmdletbinding()]
-[parameter(Mandatory=$true)][string]$DC,
-[switch]$Credentials = $false,
-[switch]$FormatList = $false,
-[switch]$ExcludelastLogonTimestamp = $false,
-[switch]$DumpAllObjects = $false,
-[switch]$Short = $false,
-[string]$Output = $null,
-[array]$ExcludeObjectGUID = $null,
-[int]$Sleep = 30
+[parameter(Mandatory=$true, ParameterSetName = 'Main')][string]$DC,
+[parameter(ParameterSetName = 'Main')][switch]$Credentials = $false,
+[parameter(ParameterSetName = 'Main')][switch]$FormatList = $false,
+[parameter(ParameterSetName = 'Main')][switch]$ExcludelastLogonTimestamp = $false,
+[parameter(ParameterSetName = 'Main')][switch]$DumpAllObjects = $false,
+[parameter(ParameterSetName = 'Main')][switch]$Short = $false,
+[parameter(ParameterSetName = 'Main')][string]$Output = $null,
+[parameter(ParameterSetName = 'Main')][array]$ExcludeObjectGUID = $null,
+[parameter(ParameterSetName = 'Main')][int]$Sleep = 30,
+[parameter(ParameterSetName = 'Main')][int]$USN = $null,
+[parameter(Mandatory=$true, ParameterSetName = 'Display')][string]$DisplayXML = $null
 )
 {
 <#
@@ -85,10 +87,26 @@ d88P     888 8888888P"   "Y8888P"  88888P"  888  "Y88888  "Y8888  888           
                                                                                  ` (|           |) ` 
                                                              By DrunkF0x.          \)           (/
 '
+## If all we need just pretty display saved result
+if ($DisplayXML) {
+    "Reading data from $DisplayXML"
+    $OutputData = Import-Clixml $DisplayXML
+    $DomainDN = ($OutputData.Object -split(",") | where-object {$_ -match "^DC="}) -join(",")
+    $OutputData | format-table -Property @{Label='Object';Expression={$_.Object.TrimEnd($DomainDN)};Width=[int](($Host.UI.RawUI.WindowSize.Width - 77)/4)},
+        @{Label='AttributeName';Expression={$_.AttributeName};Width=[int](($Host.UI.RawUI.WindowSize.Width - 77)/5)},
+        @{Label='AttributeValue';Expression={$_.AttributeValue};Width=[int](($Host.UI.RawUI.WindowSize.Width - 77)/4)},
+        @{Label='LastOriginChangeTime';Expression={$_.LastOriginatingChangeTime};Width=20},
+        @{Label='LocalChangeUsn';Expression={$_.LocalChangeUsn};Width=14},
+        @{Label='Version';Expression={$_.Version};Width=7},
+        @{Label='Explanation';Expression={$_.Explanation};Width=[int](($Host.UI.RawUI.WindowSize.Width - 77)/5)},
+        @{Label='ObjectGUID';Expression={$_.ObjectGUID};Width=36} -Wrap 
+    return 
+    } ## if ($DisplayXML)
 ## Import module ActiveDirectory, if it does not import yet
 if (!(Get-Module | Where-Object {$_.Name -eq "ActiveDirectory"})) {import-module ActiveDirectory}
 ## Collected data storage
 $USNDataWH = @()
+$CliXLMDataWH = @()
 ## If we need, we set domain credentials
 if ($Credentials) {
     $DomainCreds = Get-Credential
@@ -105,16 +123,21 @@ if ($DumpAllObjects) {
     Write-Host "Done!"
     }
 ## Get first DC usn value
-if ($Credentials) {
-    $DCInvID = (Get-ADDomainController $DC -Server $DC -Credential $DomainCreds).InvocationID.Guid
-    $DCStartReplUTDV = Get-ADReplicationUpToDatenessVectorTable $DC -EnumerationServer $DCIp -Credential $DomainCreds | where-object {$_.PartnerInvocationId.Guid -eq $DCInvID}
-    } ## if ($Credentials)
-else {
-    $DomainDN = (Get-ADDomain -Server $DC).DistinguishedName
-    $DCInvID = (Get-ADDomainController $DC -Server $DC).InvocationID.Guid
-    $DCStartReplUTDV = Get-ADReplicationUpToDatenessVectorTable $DC -EnumerationServer $DCIp | where-object {$_.PartnerInvocationId.Guid -eq $DCInvID}   
-    } ## else
-$DCOldUSN = $DCStartReplUTDV.USNFilter
+if (!$USN) {
+    if ($Credentials) {
+        $DCInvID = (Get-ADDomainController $DC -Server $DC -Credential $DomainCreds).InvocationID.Guid
+        $DCStartReplUTDV = Get-ADReplicationUpToDatenessVectorTable $DC -EnumerationServer $DCIp -Credential $DomainCreds | where-object {$_.PartnerInvocationId.Guid -eq $DCInvID}
+        } ## if ($Credentials)
+    else {
+        $DomainDN = (Get-ADDomain -Server $DC).DistinguishedName
+        $DCInvID = (Get-ADDomainController $DC -Server $DC).InvocationID.Guid
+        $DCStartReplUTDV = Get-ADReplicationUpToDatenessVectorTable $DC -EnumerationServer $DCIp | where-object {$_.PartnerInvocationId.Guid -eq $DCInvID}   
+        } ## else
+    $DCOldUSN = $DCStartReplUTDV.USNFilter
+    } ## if (!$USN)
+elseif ($USN) {
+    $DCOldUSN = $USN
+    } ## esleif ($USN)
 "Spider on AD Web now..."
 if ($Output) {
     "Output will be save in $Output"
@@ -270,7 +293,8 @@ if ($Output) {
             #############################################            
             $USNDataWH += $ChangedProps
             if ($Output) {
-                $USNDataWH | Export-Clixml -Depth 5 -Path $Output -Force
+                $CliXLMDataWH += $OutputData
+                $CliXLMDataWH | Export-Clixml -Depth 5 -Path $Output -Force
                 }
             ############################################# 
             ##
