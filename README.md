@@ -22,13 +22,13 @@ Instead of this it use replication metadata and Update Sequence Number (USN) to 
 **DC** - domain controller FQDN.  
 **Formatlist** - output in list instead of table.  
 **ExcludelastLogonTimestamp** - exclude lastLogonTimestamp events from output  
-**DumpAllObjects** - dump all active directory before start. In case of changes It will show you all previous values. But in large domains use it on your own risk (time and resource consuming).  
-**Short** - in output will be only AttributeName, AttributeValue, LastOriginChangeTime and Explanation.
-**Output** - create XML file with all output.  
-**ExcludeObjectGUID** - exclude Active Directory object with specific GUID.
-**Sleep** - time interval between requests for USN number. By default - 30 seconds.
-**USN** - specify started USN. 
-**DisplayXML** - display previous captured XML file.
+**DumpAllObjects** - dump all active directory before start. In case of changes It will show you all previous values. But in large domains use it on your own risk (time and resource consuming).    
+**Short** - in output will be only AttributeName, AttributeValue, LastOriginChangeTime and Explanation.  
+**Output** - create XML file with all output.    
+**ExcludeObjectGUID** - exclude Active Directory object with specific GUID.  
+**Sleep** - time interval between requests for USN number. By default - 30 seconds.  
+**USN** - specify started USN.   
+**DisplayXML** - display previous captured XML file.  
 ## How to use
 ### Domain computer
 Just run module in powershell session from domain user. For better performance use domain controller FQDN instead of IP address.
