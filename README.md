@@ -45,3 +45,9 @@ runas /netonly /u:domain.com\MyUser powershell
 Import-module .\ADSpider.ps1
 Invoke-ADSpider -DC DC01.domain.com
 ```
+
+## Interesting links
+https://premglitz.wordpress.com/2013/03/20/how-the-active-directory-replication-model-works/
+https://learn.microsoft.com/en-us/archive/technet-wiki/51185.active-directory-replication-metadata  
+https://learn.microsoft.com/en-us/windows/win32/adschema/a-systemflags   
+https://learn.microsoft.com/en-us/windows/win32/ad/linked-attributes     
