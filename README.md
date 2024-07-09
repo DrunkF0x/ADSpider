@@ -17,6 +17,8 @@ d88P     888 8888888P"   "Y8888P"  88888P"  888  "Y88888  "Y8888  888           
 
 Tool for monitor Active Directory changes in real time without getting all objects.
 Instead of this it use replication metadata and Update Sequence Number (USN) to filter current properties of objects.
+  
+For inspiration thanks https://github.com/p0dalirius/LDAPmonitor   
 
 ## Parameters
 **DC** - domain controller FQDN.  
@@ -30,6 +32,9 @@ Instead of this it use replication metadata and Update Sequence Number (USN) to 
 **USN** - specify started USN.   
 **DisplayXML** - display previous captured XML file.  
 ## How to use
+### Prerequisites
+PowerShell module for Active Directory  
+https://learn.microsoft.com/en-us/powershell/module/activedirectory/?view=windowsserver2022-ps  
 ### Domain computer
 Just run module in powershell session from domain user. For better performance use domain controller FQDN instead of IP address.
 ```powershell
