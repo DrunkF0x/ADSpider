@@ -19,10 +19,10 @@ Tool for monitor Active Directory changes in real time without getting all objec
 Instead of this it use replication metadata and Update Sequence Number (USN) to filter current properties of objects.
 
 ## Parameters
-**DC** - domain controller FQDN.
-**Formatlist** - output in list instead of table.
-**ExcludelastLogonTimestamp** - exclude lastLogonTimestamp events from output
-**DumpAllObjects** - dump all active directory before start. In case of changes It will show you all previous values. But in large domains use it on your own risk (time and resource consuming).
+**DC** - domain controller FQDN.  
+**Formatlist** - output in list instead of table.  
+**ExcludelastLogonTimestamp** - exclude lastLogonTimestamp events from output  
+**DumpAllObjects** - dump all active directory before start. In case of changes It will show you all previous values. But in large domains use it on your own risk (time and resource consuming).  
 **Short** - in output will be only AttributeName, AttributeValue, LastOriginChangeTime and Explanation.
 **Output** - create XML file with all output.  
 **ExcludeObjectGUID** - exclude Active Directory object with specific GUID.
